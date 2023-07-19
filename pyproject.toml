@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "retentive-network"
+version = "0.1.0"
+description = "Unofficial codebase for the \"Retentive Network: A Successor to Transformer for Large Language Models\" paper [https://arxiv.org/pdf/2307.08621.pdf]"
+authors = ["Zach Bloss <zacharybloss@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "retentive_network"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
