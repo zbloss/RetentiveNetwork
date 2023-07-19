@@ -9,6 +9,8 @@ packages = [{include = "retentive_network"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+torch = "^2.0.1"
+numpy = "^1.25.1"
 
 
 [build-system]
