@@ -12,6 +12,8 @@ python = "^3.9"
 torch = "^2.0.1"
 numpy = "^1.25.1"
 
+[tool.poetry.group.dev.dependencies]
+black = "^23.7.0"
 
 [build-system]
 requires = ["poetry-core"]
