@@ -24,15 +24,17 @@ class Retention(nn.Module):
         ).to(self.complex_torch_dtype)
 
         self.weight_q: nn.Parameter = nn.Parameter(
-            torch.randn(hidden_size, hidden_size, dtype=self.torch_dtype) / hidden_size
+            torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
         )
         self.weight_k: nn.Parameter = nn.Parameter(
-            torch.randn(hidden_size, hidden_size, dtype=self.torch_dtype) / hidden_size
+            torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
         )
         self.weight_v: nn.Parameter = nn.Parameter(
-            torch.randn(hidden_size, hidden_size) / hidden_size
+            torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
         )
-        self.theta: nn.Parameter = nn.Parameter(torch.randn(hidden_size) / hidden_size)
+        self.theta: nn.Parameter = nn.Parameter(
+            torch.randn(self.hidden_size) / self.hidden_size
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -106,14 +108,20 @@ class Retention(nn.Module):
         q: torch.Tensor = (
             torch.matmul(x, self.weight_q.to(self.complex_torch_dtype)) * theta
         )
+
         k: torch.Tensor = (
             torch.matmul(x, self.weight_k.to(self.complex_torch_dtype)) * theta_
         )
         v: torch.Tensor = torch.matmul(x, self.weight_v.to(self.complex_torch_dtype))
-        s: torch.Tensor = self.gamma * previous_S + torch.matmul(
+        matmulled = torch.matmul(
             k.unsqueeze(-1), v.unsqueeze(-2)
         )
+       
+        s: torch.Tensor = self.gamma * previous_S + matmulled
         x: torch.Tensor = torch.matmul(q.unsqueeze(1), s).squeeze(1)
+
+        print('s reshape: ', s.squeeze(-2).shape)
+
         return x, s
 
     def diagonal_matrix(self, sequence_length: int) -> torch.Tensor:
@@ -154,3 +162,4 @@ if __name__ == "__main__":
     output: torch.Tensor = layer(input_)
 
     out, S = layer.forward_recurrent(input_, 0.1234, 2)
+    print(input_.shape, out.shape)
