@@ -113,7 +113,7 @@ class MultiScaleRetention(nn.Module):
         batch_size, sequence_length, hidden_size = x.shape[:3]
 
         x = x.to(self.complex_torch_dtype)
-        n: torch.Tensor = torch.tensor(n, dtype=self.complex_torch_dtype)
+        n: torch.Tensor = torch.tensor(n, dtype=self.complex_torch_dtype, requires_grad=False)
 
         retention_slices = []
         ses = []
@@ -130,36 +130,23 @@ class MultiScaleRetention(nn.Module):
             retention_slice, s = retention_layer.forward_recurrent(
                 x_slice, previous_S, n
             )
-            print(f'retention_slice.shape: {retention_slice.shape}')
-
             retention_slices.append(retention_slice)
             ses.append(s)
-
         
         retention_slices = torch.cat(retention_slices, dim=1)
-        # retention_slices = retention_slices.reshape(-1, self.hidden_size)
 
-        print(f'\n\n\nbefore retention_slices.shape: {retention_slices.shape}')
         retention_slices = self.group_norm(retention_slices.real)
-        print(f'\n\n\nafter retention_slices.shape: {retention_slices.shape}')
-
         out = self.swish_gate(torch.matmul(x, self.weight1))
-        print(f'out.shape: {out.shape} | retention_slices.shape: {retention_slices.shape}')
-        out += retention_slices.reshape(batch_size, hidden_size, -1)
+        
+        out += retention_slices.permute(0, 2, 1) 
         out = torch.matmul(out, self.weight2)
-
         return out, ses
         
 
 if __name__ == "__main__":
-    number_of_heads = 5
     batch_size, sequence_length, hidden_size = (4, 20, 100)
 
-    MultiScaleRetention(hidden_size, number_of_heads)
-
     input_: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
-    layer: nn.Module = MultiScaleRetention(hidden_size, number_of_heads)
+    layer: nn.Module = Retention(hidden_size, 0.1, False)
     output: torch.Tensor = layer(input_)
-
-    (output, S) = layer.forward_recurrent(input_, [0, 1, 2, 3, 4], 4)
-    
+    out, S = layer.forward_recurrent(input_, 0.1, 2)    

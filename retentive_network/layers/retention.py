@@ -119,9 +119,6 @@ class Retention(nn.Module):
        
         s: torch.Tensor = self.gamma * previous_S + matmulled
         x: torch.Tensor = torch.matmul(q.unsqueeze(1), s).squeeze(1)
-
-        print('s reshape: ', s.squeeze(-2).shape)
-
         return x, s
 
     def diagonal_matrix(self, sequence_length: int) -> torch.Tensor:
