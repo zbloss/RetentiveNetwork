@@ -10,12 +10,14 @@ class FeedForward(nn.Module):
         self.feed_forward_size: int = feed_forward_size
 
         sqrt_hidden_size: torch.Tensor = torch.sqrt(torch.tensor(self.hidden_size))
-        sqrt_feed_forward_size: torch.Tensor = torch.sqrt(torch.tensor(self.feed_forward_size))
-        
+        sqrt_feed_forward_size: torch.Tensor = torch.sqrt(
+            torch.tensor(self.feed_forward_size)
+        )
+
         self.weight1: nn.Parameter = nn.Parameter(
             torch.randn(self.hidden_size, self.feed_forward_size) / sqrt_hidden_size
         )
-               
+
         self.weight2: nn.Parameter = nn.Parameter(
             torch.randn(self.feed_forward_size, self.hidden_size)
             / sqrt_feed_forward_size
@@ -28,7 +30,7 @@ class FeedForward(nn.Module):
         weight `self.weight1` then GELU is applied. Lastly,
         the resulting tensor is multiplied by the second
         and final weight parameter `self.weight2`.
-        
+
         Arguments:
             x (torch.Tensor): Tensor of shape [batch_size, sequence_length, hidden_size]
 
