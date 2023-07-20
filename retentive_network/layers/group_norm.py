@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 
-class ComplexGroupNorm(nn.Module):
+class GroupNorm(nn.Module):
     """
-    Complex Group Normalization as described on Page 6 of
+    Group Normalization as described on Page 6 of
     :ref: https://openaccess.thecvf.com/content_ECCV_2018/papers/Yuxin_Wu_Group_Normalization_ECCV_2018_paper.pdf
     :Authors: Yuxin Wu, Kaiming He
 
@@ -15,14 +15,14 @@ class ComplexGroupNorm(nn.Module):
     def __init__(
         self, number_of_groups: int, number_of_channels: int, eps: float = 1e-5
     ):
-        super(ComplexGroupNorm, self).__init__()
+        super(GroupNorm, self).__init__()
 
         self.number_of_groups = number_of_groups
         self.number_of_channels = number_of_channels
 
         self.eps = eps
-        self.gamma = nn.Parameter(torch.ones(number_of_channels, dtype=torch.float32))
-        self.beta = nn.Parameter(torch.zeros(number_of_channels, dtype=torch.float32))
+        self.gamma = nn.Parameter(torch.ones(number_of_channels))
+        self.beta = nn.Parameter(torch.zeros(number_of_channels))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -49,5 +49,5 @@ class ComplexGroupNorm(nn.Module):
 
 if __name__ == "__main__":
     input_ = torch.randn(8, 20, 18)
-    layer = ComplexGroupNorm(3, 6)
-    complex_output = layer(input_)
+    layer = GroupNorm(3, 6)
+    output = layer(input_)
