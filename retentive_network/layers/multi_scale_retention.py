@@ -42,7 +42,7 @@ class MultiScaleRetention(nn.Module):
             torch.randn(hidden_size, hidden_size, dtype=self.complex_torch_dtype)
             / hidden_size
         )
-        self.weigh2: nn.Parameter = nn.Parameter(
+        self.weight2: nn.Parameter = nn.Parameter(
             torch.randn(hidden_size, hidden_size, dtype=self.complex_torch_dtype)
             / hidden_size
         )
