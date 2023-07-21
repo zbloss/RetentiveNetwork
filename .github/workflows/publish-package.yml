@@ -1,6 +1,8 @@
 name: Publish RetentiveNetwork
 
-on: [ push ]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:
