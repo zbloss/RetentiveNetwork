@@ -141,8 +141,8 @@ if __name__ == "__main__":
 
     recurrent_out = []
     for idx in range(sequence_length):
-        Y, s_ns = model.forward_recurrent(input_[:, idx, :], previous_Ses, idx + 1)
-        recurrent_out.append(Y)
+        out, s_ns = model.forward_recurrent(input_[:, idx, :], previous_Ses, idx + 1)
+        recurrent_out.append(out)
         previous_Ses = s_ns
 
     recurrent_out: torch.Tensor = torch.stack(recurrent_out, dim=1)
