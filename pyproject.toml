@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "retentive-network"
-version = "0.1.0"
+version = "0.0.1"
 description = "Unofficial codebase for the \"Retentive Network: A Successor to Transformer for Large Language Models\" paper [https://arxiv.org/pdf/2307.08621.pdf]"
 authors = ["Zach Bloss <zacharybloss@gmail.com>"]
 license = "MIT"
@@ -19,3 +19,6 @@ notebook = "^7.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

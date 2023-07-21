@@ -5,8 +5,6 @@ from retentive_network.layers.feed_forward import FeedForward
 from retentive_network.layers.layer_norm import LayerNorm
 from retentive_network.layers.multi_scale_retention import MultiScaleRetention
 
-# from util import ComplexFFN, ComplexGroupNorm, ComplexLayerNorm
-
 
 class RetentiveNetwork(nn.Module):
     def __init__(
@@ -23,7 +21,7 @@ class RetentiveNetwork(nn.Module):
         self.hidden_size: int = hidden_size
         self.feed_forward_size: int = feed_forward_size
         self.number_of_heads: int = number_of_heads
-        self.half_point_precision: int = half_point_precision
+        self.half_point_precision: bool = half_point_precision
 
         self.retention_layers: nn.ModuleList = nn.ModuleList(
             [
@@ -38,12 +36,6 @@ class RetentiveNetwork(nn.Module):
             ]
         )
 
-        self.torch_dtype: torch.dtype = (
-            torch.float16 if self.half_point_precision else torch.float32
-        )
-        self.complex_torch_dtype: torch.dtype = (
-            torch.complex32 if self.half_point_precision else torch.complex64
-        )
         self.layer_norm: nn.Module = LayerNorm(
             self.hidden_size, half_point_precision=self.half_point_precision
         )

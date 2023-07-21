@@ -8,7 +8,11 @@ from retentive_network.layers.swish_gate import SwishGate
 
 class MultiScaleRetention(nn.Module):
     def __init__(
-        self, hidden_size: int, number_of_heads: int, half_point_precision: bool = False
+        self,
+        hidden_size: int,
+        number_of_heads: int,
+        half_point_precision: bool = False,
+        use_complex_numbers: bool = False,
     ):
         super(MultiScaleRetention, self).__init__()
 
@@ -18,7 +22,7 @@ class MultiScaleRetention(nn.Module):
         self.hidden_size: int = hidden_size
         self.number_of_heads: int = number_of_heads
         self.half_point_precision: bool = half_point_precision
-        self.head_size = self.hidden_size // self.number_of_heads
+        self.use_complex_numbers: bool = use_complex_numbers
 
         self.torch_dtype: torch.dtype = (
             torch.float16 if self.half_point_precision else torch.float32
@@ -35,16 +39,30 @@ class MultiScaleRetention(nn.Module):
             gamma_minimum, gamma_maximum, self.number_of_heads
         )
         self.gammas: list = (1 - torch.exp(linspace)).detach().cpu().tolist()
-
         self.swish_gate: nn.Module = SwishGate()
-        self.weight1: nn.Parameter = nn.Parameter(
-            torch.randn(self.hidden_size, self.hidden_size).to(self.complex_torch_dtype)
-            / self.hidden_size
-        )
-        self.weight2: nn.Parameter = nn.Parameter(
-            torch.randn(self.hidden_size, self.hidden_size).to(self.complex_torch_dtype)
-            / self.hidden_size
-        )
+
+        if self.use_complex_numbers:
+            self.weight1: nn.Parameter = nn.Parameter(
+                torch.randn(self.hidden_size, self.hidden_size).to(
+                    self.complex_torch_dtype
+                )
+                / self.hidden_size
+            )
+            self.weight2: nn.Parameter = nn.Parameter(
+                torch.randn(self.hidden_size, self.hidden_size).to(
+                    self.complex_torch_dtype
+                )
+                / self.hidden_size
+            )
+
+        else:
+            self.weight1: nn.Parameter = nn.Parameter(
+                torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
+            )
+            self.weight2: nn.Parameter = nn.Parameter(
+                torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
+            )
+
         self.group_norm: nn.Module = nn.GroupNorm(
             self.number_of_heads, self.hidden_size, dtype=self.torch_dtype
         )
@@ -63,7 +81,8 @@ class MultiScaleRetention(nn.Module):
             torch.Tensor: A Tensor of shape [batch_size, sequence_length, self.hidden_size]
         """
 
-        x = x.to(self.complex_torch_dtype)
+        if self.use_complex_numbers:
+            x = x.to(self.complex_torch_dtype)
 
         # Apply Retention to iterations of `x` by model head.
         retention_slices = []
@@ -108,11 +127,15 @@ class MultiScaleRetention(nn.Module):
                           recurrent retention forward pass.
         """
 
-        # batch_size, sequence_length, hidden_size = x.shape[:3]
+        if self.use_complex_numbers:
+            x = x.to(self.complex_torch_dtype)
 
-        x = x.to(self.complex_torch_dtype)
         n: torch.Tensor = torch.tensor(
-            n, dtype=self.complex_torch_dtype, requires_grad=False
+            n,
+            dtype=self.complex_torch_dtype
+            if self.use_complex_numbers
+            else self.torch_dtype,
+            requires_grad=False,
         )
 
         retention_slices = []
@@ -141,19 +164,27 @@ class MultiScaleRetention(nn.Module):
         out = torch.matmul(out, self.weight2)
         return out, ses
 
+    @property
+    def head_size(self):
+        return self.hidden_size // self.number_of_heads
+
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_size, num_heads = (4, 5, 32, 4)
+    batch_size, sequence_length, hidden_size, number_of_heads = (4, 5, 32, 4)
 
     input_: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
-    layer: nn.Module = MultiScaleRetention(hidden_size, num_heads)
+    layer: nn.Module = MultiScaleRetention(hidden_size, number_of_heads)
     output: torch.Tensor = layer(input_)
 
     previous_S = [
         torch.randn(
-            (batch_size, int(hidden_size / num_heads), int(hidden_size / num_heads))
+            (
+                batch_size,
+                layer.head_size,
+                layer.head_size,
+            )
         )
-        for _ in range(num_heads)
+        for _ in range(number_of_heads)
     ]
 
     retention_outputs = []
