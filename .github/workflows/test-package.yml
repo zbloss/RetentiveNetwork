@@ -21,12 +21,12 @@ jobs:
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           poetry --version
+          poetry export --without-hashes --format=requirements.txt > requirements.txt
 
       - name: Run Tests
         run: |
           python -m pip install --upgrade pip
-          poetry install --with test
-          pip3 install pytest==7.4.0
+          pip install -r requirements.txt 
           python -m pytest --doctest-modules --junit-xml=junit/test-results-${{ matrix.python-version }}.xml          
 
       - name: Upload pytest test results
