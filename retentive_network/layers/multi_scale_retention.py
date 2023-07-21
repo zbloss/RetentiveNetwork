@@ -110,7 +110,7 @@ class MultiScaleRetention(nn.Module):
                           recurrent retention forward pass.
         """
 
-        batch_size, sequence_length, hidden_size = x.shape[:3]
+        # batch_size, sequence_length, hidden_size = x.shape[:3]
 
         x = x.to(self.complex_torch_dtype)
         n: torch.Tensor = torch.tensor(n, dtype=self.complex_torch_dtype, requires_grad=False)
@@ -125,7 +125,7 @@ class MultiScaleRetention(nn.Module):
 
             head_index_start = head * self.head_size
             head_index_end = (head + 1) * self.head_size
-            x_slice = x[:, :, head_index_start:head_index_end]       
+            x_slice = x[:, head_index_start:head_index_end]       
 
             retention_slice, s = retention_layer.forward_recurrent(
                 x_slice, previous_S, n
@@ -138,15 +138,25 @@ class MultiScaleRetention(nn.Module):
         retention_slices = self.group_norm(retention_slices.real)
         out = self.swish_gate(torch.matmul(x, self.weight1))
         
-        out += retention_slices.permute(0, 2, 1) 
+        out += retention_slices
         out = torch.matmul(out, self.weight2)
         return out, ses
         
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_size = (4, 20, 100)
+    batch_size, sequence_length, hidden_size, num_heads = (4, 5, 32, 4)
 
     input_: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
-    layer: nn.Module = Retention(hidden_size, 0.1, False)
+    layer: nn.Module = MultiScaleRetention(hidden_size, num_heads)
     output: torch.Tensor = layer(input_)
-    out, S = layer.forward_recurrent(input_, 0.1, 2)    
+
+    previous_S = [torch.randn((batch_size, int(hidden_size / num_heads), int(hidden_size / num_heads))) for _ in range(num_heads)]
+    
+    retention_outputs = []
+    for idx in range(sequence_length):
+        out, s = layer.forward_recurrent(input_[:, idx, :], previous_S, idx)
+        retention_outputs.append(out)
+        previous_S = s
+
+    retention_outputs = torch.stack(retention_outputs, dim=1)
+    assert retention_outputs.shape == (batch_size, sequence_length, hidden_size)

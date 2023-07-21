@@ -159,4 +159,3 @@ if __name__ == "__main__":
     output: torch.Tensor = layer(input_)
 
     out, S = layer.forward_recurrent(input_, 0.1234, 2)
-    print(input_.shape, out.shape)
