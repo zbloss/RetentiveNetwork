@@ -113,10 +113,8 @@ class Retention(nn.Module):
             torch.matmul(x, self.weight_k.to(self.complex_torch_dtype)) * theta_
         )
         v: torch.Tensor = torch.matmul(x, self.weight_v.to(self.complex_torch_dtype))
-        matmulled = torch.matmul(
-            k.unsqueeze(-1), v.unsqueeze(-2)
-        )
-       
+        matmulled = torch.matmul(k.unsqueeze(-1), v.unsqueeze(-2))
+
         s: torch.Tensor = self.gamma * previous_S + matmulled
         x: torch.Tensor = torch.matmul(q.unsqueeze(1), s).squeeze(1)
         return x, s

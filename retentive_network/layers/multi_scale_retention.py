@@ -1,5 +1,3 @@
-import itertools
-
 import torch
 import torch.nn as nn
 
@@ -113,35 +111,36 @@ class MultiScaleRetention(nn.Module):
         # batch_size, sequence_length, hidden_size = x.shape[:3]
 
         x = x.to(self.complex_torch_dtype)
-        n: torch.Tensor = torch.tensor(n, dtype=self.complex_torch_dtype, requires_grad=False)
+        n: torch.Tensor = torch.tensor(
+            n, dtype=self.complex_torch_dtype, requires_grad=False
+        )
 
         retention_slices = []
         ses = []
         for head, retention_layer, previous_S in zip(
-            [_ for _ in range(self.number_of_heads)], 
+            [_ for _ in range(self.number_of_heads)],
             self.retention_layers,
-            previous_Ses
+            previous_Ses,
         ):
-
             head_index_start = head * self.head_size
             head_index_end = (head + 1) * self.head_size
-            x_slice = x[:, head_index_start:head_index_end]       
+            x_slice = x[:, head_index_start:head_index_end]
 
             retention_slice, s = retention_layer.forward_recurrent(
                 x_slice, previous_S, n
             )
             retention_slices.append(retention_slice)
             ses.append(s)
-        
+
         retention_slices = torch.cat(retention_slices, dim=1)
 
         retention_slices = self.group_norm(retention_slices.real)
         out = self.swish_gate(torch.matmul(x, self.weight1))
-        
+
         out += retention_slices
         out = torch.matmul(out, self.weight2)
         return out, ses
-        
+
 
 if __name__ == "__main__":
     batch_size, sequence_length, hidden_size, num_heads = (4, 5, 32, 4)
@@ -150,8 +149,13 @@ if __name__ == "__main__":
     layer: nn.Module = MultiScaleRetention(hidden_size, num_heads)
     output: torch.Tensor = layer(input_)
 
-    previous_S = [torch.randn((batch_size, int(hidden_size / num_heads), int(hidden_size / num_heads))) for _ in range(num_heads)]
-    
+    previous_S = [
+        torch.randn(
+            (batch_size, int(hidden_size / num_heads), int(hidden_size / num_heads))
+        )
+        for _ in range(num_heads)
+    ]
+
     retention_outputs = []
     for idx in range(sequence_length):
         out, s = layer.forward_recurrent(input_[:, idx, :], previous_S, idx)
