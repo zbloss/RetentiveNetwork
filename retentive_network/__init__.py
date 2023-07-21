@@ -1,2 +1,2 @@
+from . import layers, models
 from .exceptions import *
-from .layers import *

@@ -38,7 +38,8 @@ class FeedForward(nn.Module):
             torch.Tensor: Tensor after applying feed forward operations.
         """
 
-        x: torch.Tensor = F.gelu(torch.matmul(x, self.weight1))
+        x: torch.Tensor = torch.matmul(x.real, self.weight1)
+        x: torch.Tensor = F.gelu(x)
         x: torch.Tensor = torch.matmul(x, self.weight2)
         return x
 
