@@ -178,6 +178,7 @@ if __name__ == "__main__":
         number_of_heads,
         number_of_layers,
         feed_forward_size,
+        chunk_size
     ) = (
         8,
         5,
@@ -185,6 +186,7 @@ if __name__ == "__main__":
         4,
         4,
         20,
+        4
     )
 
     input_: torch.Tensor = torch.randn(batch_size, sequence_length, hidden_size)
@@ -194,6 +196,7 @@ if __name__ == "__main__":
         hidden_size=hidden_size,
         number_of_heads=number_of_heads,
         feed_forward_size=feed_forward_size,
+        chunk_size=chunk_size
     )
     parallel_out: torch.Tensor = model(input_)
     s_dim: int = hidden_size // number_of_heads

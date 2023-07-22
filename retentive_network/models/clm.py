@@ -240,6 +240,7 @@ if __name__ == "__main__":
     vocab_size = 10
     sample_length = 20
     number_of_samples = 3
+    chunk_size = 4
     softmax = True
 
     X = torch.randint(0, vocab_size, (batch_size, sequence_length))
@@ -250,6 +251,7 @@ if __name__ == "__main__":
         number_of_heads=number_of_heads,
         feed_forward_size=feed_forward_size,
         vocab_size=vocab_size,
+        chunk_size=chunk_size,
         softmax=softmax,
     )
     parallel_out = model(X)

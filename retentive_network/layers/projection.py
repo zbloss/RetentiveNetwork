@@ -32,3 +32,10 @@ class Projection(nn.Module):
         if not x.dtype == self.dtype:
             x = x.to(self.dtype)
         return self.model(x)
+
+if __name__ == '__main__':
+    batch_size, sequence_length, hidden_size = (4, 20, 100)
+    x: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
+    model: nn.Module = Projection(hidden_size=hidden_size, bias=True, dtype=torch.float32)
+
+    out = model(x)
