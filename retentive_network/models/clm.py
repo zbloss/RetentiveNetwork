@@ -23,6 +23,7 @@ class RetentiveNetworkCLM(nn.Module):
         number_of_heads: int,
         feed_forward_size: int,
         vocab_size: int,
+        chunk_size: int,
         half_point_precision: bool = False,
         use_complex_numbers: bool = False,
         softmax: bool = False,
@@ -34,6 +35,7 @@ class RetentiveNetworkCLM(nn.Module):
         self.number_of_heads: int = number_of_heads
         self.feed_forward_size: int = feed_forward_size
         self.vocab_size: int = vocab_size
+        self.chunk_size: int = chunk_size
         self.half_point_precision: bool = half_point_precision
         self.use_complex_numbers: bool = use_complex_numbers
         self.softmax: bool = softmax
@@ -50,6 +52,7 @@ class RetentiveNetworkCLM(nn.Module):
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
             feed_forward_size=self.feed_forward_size,
+            chunk_size=self.chunk_size,
             half_point_precision=self.half_point_precision,
         )
         self.embedding_layer: nn.Module = nn.Embedding(self.vocab_size, hidden_size)
@@ -169,9 +172,7 @@ class RetentiveNetworkCLM(nn.Module):
         ]
 
         for idx in range(sequence_length):
-            X, previous_Ses = self.forward_recurrent(
-                x[:, idx], previous_Ses, idx + 1
-            )
+            X, previous_Ses = self.forward_recurrent(x[:, idx], previous_Ses, idx + 1)
 
         original_x = self._multinomial_probability_distribution(
             x=X, temperature=temperature, number_of_samples=number_of_samples

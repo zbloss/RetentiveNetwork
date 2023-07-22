@@ -19,3 +19,13 @@ class InvalidTemperatureException(Exception):
     def __init__(self, temperature: float):
         self.message = f"temperature ({temperature}) must be both greater than zero and less than or equal to 1"
         super().__init__(self.message)
+
+
+class InvalidHiddenSizeException(Exception):
+    """
+    Raised in the event that the hidden size parameter passed is invalid
+    """
+
+    def __init__(self, hidden_size: int, model_required_hidden_size: int):
+        self.message = f"hidden_size ({hidden_size}) must be equal to model.hidden_size ({hidden_size})"
+        super().__init__(self.message)

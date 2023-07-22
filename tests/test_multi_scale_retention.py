@@ -2,8 +2,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from retentive_network.layers.multi_scale_retention import MultiScaleRetention
 from retentive_network.exceptions import InvalidRetentionParametersException
+from retentive_network.layers.multi_scale_retention import MultiScaleRetention
 
 
 class TestMultiScaleRetention:
@@ -11,12 +11,17 @@ class TestMultiScaleRetention:
     sequence_length = 5
     hidden_size = 32
     number_of_heads = 4
+    chunk_size = 2
     sample_tensor = torch.randn((batch_size, sequence_length, hidden_size))
 
     half_point_precision = False
     use_complex_numbers = False
     model = MultiScaleRetention(
-        hidden_size, number_of_heads, half_point_precision, use_complex_numbers
+        hidden_size=hidden_size,
+        number_of_heads=number_of_heads,
+        chunk_size=chunk_size,
+        half_point_precision=half_point_precision,
+        use_complex_numbers=use_complex_numbers,
     )
 
     def test_types(self):
@@ -39,6 +44,7 @@ class TestMultiScaleRetention:
         model = MultiScaleRetention(
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
+            chunk_size=self.chunk_size,
             half_point_precision=True,
             use_complex_numbers=self.use_complex_numbers,
         )
@@ -56,6 +62,7 @@ class TestMultiScaleRetention:
         model = MultiScaleRetention(
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
+            chunk_size=self.chunk_size,
             half_point_precision=False,
             use_complex_numbers=True,
         )
@@ -111,6 +118,15 @@ class TestMultiScaleRetention:
             model = MultiScaleRetention(
                 hidden_size=bad_hidden_size,
                 number_of_heads=bad_number_of_heads,
+                chunk_size=self.chunk_size,
                 half_point_precision=True,
                 use_complex_numbers=self.use_complex_numbers,
             )
+
+    def test_forward_chunkwise(self):
+        q, k, v = self.model._project_qkv(self.sample_tensor)
+        previous_kv = torch.matmul(k.transpose(-1, -2), v)
+        out, previous_kv = self.model.forward_chunkwise(self.sample_tensor, previous_kv)
+        assert out.shape == torch.Size(
+            [self.batch_size, self.sequence_length, self.hidden_size]
+        )

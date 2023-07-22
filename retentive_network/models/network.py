@@ -13,6 +13,7 @@ class RetentiveNetwork(nn.Module):
         hidden_size: int,
         number_of_heads: int,
         feed_forward_size: int,
+        chunk_size: int,
         half_point_precision: bool = False,
     ):
         super(RetentiveNetwork, self).__init__()
@@ -21,11 +22,17 @@ class RetentiveNetwork(nn.Module):
         self.hidden_size: int = hidden_size
         self.feed_forward_size: int = feed_forward_size
         self.number_of_heads: int = number_of_heads
+        self.chunk_size: int = chunk_size
         self.half_point_precision: bool = half_point_precision
 
         self.retention_layers: nn.ModuleList = nn.ModuleList(
             [
-                MultiScaleRetention(self.hidden_size, self.number_of_heads)
+                MultiScaleRetention(
+                    self.hidden_size,
+                    self.number_of_heads,
+                    self.chunk_size,
+                    self.half_point_precision,
+                )
                 for _ in range(self.number_of_layers)
             ]
         )
@@ -106,7 +113,7 @@ if __name__ == "__main__":
         batch_size,
         sequence_length,
         hidden_size,
-        num_heads,
+        number_of_heads,
         number_of_layers,
         feed_forward_size,
     ) = (
@@ -121,13 +128,16 @@ if __name__ == "__main__":
     input_: torch.Tensor = torch.randn(batch_size, sequence_length, hidden_size)
 
     model: nn.Module = RetentiveNetwork(
-        number_of_layers, hidden_size, num_heads, feed_forward_size
+        number_of_layers=number_of_layers,
+        hidden_size=hidden_size,
+        number_of_heads=number_of_heads,
+        feed_forward_size=feed_forward_size,
     )
     parallel_out: torch.Tensor = model(input_)
-    s_dim: int = hidden_size // num_heads
+    s_dim: int = hidden_size // number_of_heads
 
     previous_Ses = [
-        [torch.zeros(batch_size, s_dim, s_dim) for _ in range(num_heads)]
+        [torch.zeros(batch_size, s_dim, s_dim) for _ in range(number_of_heads)]
         for _ in range(number_of_layers)
     ]
 

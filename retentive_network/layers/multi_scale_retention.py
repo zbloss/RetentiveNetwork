@@ -1,7 +1,12 @@
 import torch
 import torch.nn as nn
 
-from retentive_network.exceptions import InvalidRetentionParametersException
+from retentive_network.exceptions import (
+    InvalidHiddenSizeException,
+    InvalidRetentionParametersException,
+)
+from retentive_network.layers.group_norm import GroupNorm
+from retentive_network.layers.projection import Projection
 from retentive_network.layers.retention import Retention
 from retentive_network.layers.swish_gate import SwishGate
 
@@ -11,6 +16,7 @@ class MultiScaleRetention(nn.Module):
         self,
         hidden_size: int,
         number_of_heads: int,
+        chunk_size: int,
         half_point_precision: bool = False,
         use_complex_numbers: bool = False,
     ):
@@ -21,6 +27,7 @@ class MultiScaleRetention(nn.Module):
 
         self.hidden_size: int = hidden_size
         self.number_of_heads: int = number_of_heads
+        self.chunk_size: int = chunk_size
         self.half_point_precision: bool = half_point_precision
         self.use_complex_numbers: bool = use_complex_numbers
 
@@ -63,12 +70,18 @@ class MultiScaleRetention(nn.Module):
                 torch.randn(self.hidden_size, self.hidden_size) / self.hidden_size
             )
 
-        self.group_norm: nn.Module = nn.GroupNorm(
-            self.number_of_heads, self.hidden_size, dtype=self.torch_dtype
+        self.group_norm: nn.Module = GroupNorm(
+            self.number_of_heads,
+            self.hidden_size,
+            half_point_precision=self.half_point_precision,
         )
         self.retention_layers: nn.ModuleList = nn.ModuleList(
             [Retention(self.head_size, gamma) for gamma in self.gammas]
         )
+
+        self.weight_q_projection: nn.Module = Projection(self.hidden_size)
+        self.weight_k_projection: nn.Module = Projection(self.hidden_size)
+        self.weight_v_projection: nn.Module = Projection(self.hidden_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -164,16 +177,102 @@ class MultiScaleRetention(nn.Module):
         out = torch.matmul(out, self.weight2)
         return out, ses
 
+    def forward_chunkwise(
+        self, x: torch.Tensor, previous_kv: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Implements the forward pass of the chunkwise form of MSR.
+
+        Arguments:
+            x (torch.Tensor): A Tensor of shape [batch_size, sequence_length].
+
+        Returns:
+            torch.Tensor: A Tensor of shape [batch_size, sequence_length, hidden_size]
+            torch.Tensor: A Tensor of shape [batch_size, sequence_length, number_of_heads*2, number_of_heads*2]
+        """
+
+        batch_size, sequence_length, hidden_size = x.shape
+
+        if hidden_size != self.hidden_size:
+            raise InvalidHiddenSizeException(hidden_size, self.hidden_size)
+
+        total_chunks = sequence_length // self.chunk_size
+        if sequence_length % self.chunk_size != 0:
+            total_chunks += 1
+
+        # Initialize state
+        state = torch.zeros(batch_size, hidden_size, hidden_size)
+
+        q, k, v = self._project_qkv(x)
+        retention = torch.matmul(q, k.transpose(-1, -2))
+
+        inner_retention = torch.matmul(retention, v)
+        cross_retention = torch.matmul(q, previous_kv)
+        retention = inner_retention + cross_retention
+
+        output = self.group_norm(retention)
+        current_kv = previous_kv + torch.matmul(k.transpose(-1, -2), v)
+
+        output = output.reshape(batch_size, sequence_length, hidden_size)
+        return output, current_kv
+
+    def _project_qkv(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Helper method to project Q, K, and V values
+        from x.
+
+        Arguments:
+            x (torch.Tensor): Torch tensor of shape [
+                batch_size, sequence_length,
+                hidden_size, chunk_size
+            ]
+
+        Returns:
+            torch.Tensor: (Q) Torch tensor of shape [
+                batch_size, sequence_length,
+                hidden_size, chunk_size
+            ]
+            torch.Tensor: (K) Torch tensor of shape [
+                batch_size, sequence_length,
+                hidden_size, chunk_size
+            ]
+            torch.Tensor: (V) Torch tensor of shape [
+                batch_size, sequence_length,
+                hidden_size, chunk_size
+            ]
+        """
+
+        (batch_size, sequence_length, hidden_size) = x.shape
+
+        if hidden_size != self.hidden_size:
+            raise InvalidHiddenSizeException(hidden_size, self.hidden_size)
+
+        q = self.weight_q_projection(x)
+        k = self.weight_k_projection(x)
+        v = self.weight_v_projection(x)
+
+        q = q.reshape(batch_size, sequence_length, self.number_of_heads, -1)
+        k = k.reshape(batch_size, sequence_length, self.number_of_heads, -1)
+        v = v.reshape(batch_size, sequence_length, self.number_of_heads, -1)
+
+        return q, k, v
+
     @property
     def head_size(self):
         return self.hidden_size // self.number_of_heads
 
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_size, number_of_heads = (4, 5, 32, 4)
+    batch_size, sequence_length, hidden_size, number_of_heads, chunk_size = (
+        4,
+        5,
+        32,
+        4,
+        2,
+    )
 
     input_: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
-    layer: nn.Module = MultiScaleRetention(hidden_size, number_of_heads)
+    layer: nn.Module = MultiScaleRetention(hidden_size, number_of_heads, chunk_size)
     output: torch.Tensor = layer(input_)
 
     previous_S = [
@@ -195,3 +294,8 @@ if __name__ == "__main__":
 
     retention_outputs = torch.stack(retention_outputs, dim=1)
     assert retention_outputs.shape == (batch_size, sequence_length, hidden_size)
+
+    q, k, v = layer._project_qkv(input_)
+    previous_kv = torch.matmul(k.transpose(-1, -2), v)
+    out, previous_kv = layer.forward_chunkwise(input_, previous_kv)
+    print(f"out.shape: {out.shape} | previous_kv.shape: {previous_kv.shape}")

@@ -1,8 +1,8 @@
 import pytest
-
 import torch
-from retentive_network.models.clm import RetentiveNetworkCLM
+
 from retentive_network.exceptions import InvalidTemperatureException
+from retentive_network.models.clm import RetentiveNetworkCLM
 
 
 class TestRetentiveNetworkCLM:
@@ -13,6 +13,7 @@ class TestRetentiveNetworkCLM:
     sequence_length = 100
     feed_forward_size = 32
     vocab_size = 10
+    chunk_size = 2
     sample_length = 20
     number_of_samples = 3
     temperature = 0.9
@@ -27,6 +28,7 @@ class TestRetentiveNetworkCLM:
         number_of_heads=number_of_heads,
         feed_forward_size=feed_forward_size,
         vocab_size=vocab_size,
+        chunk_size=chunk_size,
         half_point_precision=half_point_precision,
         use_complex_numbers=use_complex_numbers,
         softmax=softmax,
@@ -44,6 +46,7 @@ class TestRetentiveNetworkCLM:
             number_of_heads=self.number_of_heads,
             feed_forward_size=self.feed_forward_size,
             vocab_size=self.vocab_size,
+            chunk_size=self.chunk_size,
             half_point_precision=True,
             use_complex_numbers=self.use_complex_numbers,
             softmax=self.softmax,
@@ -64,6 +67,7 @@ class TestRetentiveNetworkCLM:
             number_of_heads=self.number_of_heads,
             feed_forward_size=self.feed_forward_size,
             vocab_size=self.vocab_size,
+            chunk_size=self.chunk_size,
             half_point_precision=True,
             use_complex_numbers=self.use_complex_numbers,
             softmax=True,

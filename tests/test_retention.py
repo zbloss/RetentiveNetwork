@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from retentive_network.layers.retention import Retention
 
 
