@@ -10,10 +10,10 @@ class LayerNorm(nn.Module):
         self.num_channels = num_channels
         self.eps = eps
 
-        dtype = torch.float16 if half_point_precision else torch.float32
+        self.dtype = torch.float16 if half_point_precision else torch.float32
 
-        self.gamma = nn.Parameter(torch.ones(num_channels, dtype=dtype))
-        self.beta = nn.Parameter(torch.zeros(num_channels, dtype=dtype))
+        self.gamma = nn.Parameter(torch.ones(num_channels, dtype=self.dtype))
+        self.beta = nn.Parameter(torch.zeros(num_channels, dtype=self.dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
