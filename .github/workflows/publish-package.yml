@@ -28,7 +28,8 @@ jobs:
       - name: Run Tests
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt 
+          pip install -r requirements.txt
+          poetry install
           python -m pytest --doctest-modules --junit-xml=junit/test-results-${{ matrix.python-version }}.xml          
 
       - name: Upload pytest test results

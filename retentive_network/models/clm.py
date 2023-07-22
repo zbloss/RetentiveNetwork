@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from retentive_network.exceptions import InvalidTemperatureException
 from retentive_network.models.network import RetentiveNetwork
 
 
@@ -50,7 +51,6 @@ class RetentiveNetworkCLM(nn.Module):
             number_of_heads=self.number_of_heads,
             feed_forward_size=self.feed_forward_size,
             half_point_precision=self.half_point_precision,
-            use_complex_numbers=self.use_complex_numbers,
         )
         self.embedding_layer: nn.Module = nn.Embedding(self.vocab_size, hidden_size)
         self.projection: torch.Tensor = nn.Parameter(
@@ -132,7 +132,7 @@ class RetentiveNetworkCLM(nn.Module):
 
     def sample(
         self,
-        input_ids: torch.Tensor,
+        x: torch.Tensor,
         sample_length: int,
         temperature: float = 1.0,
         number_of_samples: int = 1,
@@ -156,8 +156,9 @@ class RetentiveNetworkCLM(nn.Module):
             torch.Tensor: Tensor of shape [batch_size, `sample_length`]
         """
 
-        assert temperature > 0, f"temperature must be greater than 0"
-        batch_size, sequence_length = input_ids.shape
+        if temperature <= 0 or temperature > 1:
+            raise InvalidTemperatureException(temperature)
+        batch_size, sequence_length = x.shape
 
         previous_Ses = [
             [
@@ -169,7 +170,7 @@ class RetentiveNetworkCLM(nn.Module):
 
         for idx in range(sequence_length):
             X, previous_Ses = self.forward_recurrent(
-                input_ids[:, idx], previous_Ses, idx + 1
+                x[:, idx], previous_Ses, idx + 1
             )
 
         original_x = self._multinomial_probability_distribution(
