@@ -1,3 +1,4 @@
+import pytest
 import torch
 import torch.nn as nn
 
@@ -102,3 +103,14 @@ class TestMultiScaleRetention:
             self.model.hidden_size // self.model.number_of_heads
         )
         assert isinstance(self.model.head_size, int)
+
+    def test_invalid_parameters(self):
+        bad_hidden_size = 10
+        bad_number_of_heads = 11
+        with pytest.raises(InvalidRetentionParametersException):
+            model = MultiScaleRetention(
+                hidden_size=bad_hidden_size,
+                number_of_heads=bad_number_of_heads,
+                half_point_precision=True,
+                use_complex_numbers=self.use_complex_numbers,
+            )
