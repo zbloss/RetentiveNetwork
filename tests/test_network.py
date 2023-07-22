@@ -20,7 +20,7 @@ class TestRetentiveNetwork:
         feed_forward_size=feed_forward_size,
         chunk_size=chunk_size,
         half_point_precision=False,
-        use_complex_numbers=False
+        use_complex_numbers=False,
     )
 
     def test_forward(self):

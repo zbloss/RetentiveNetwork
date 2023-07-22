@@ -14,12 +14,11 @@ class TestRetention:
     sample_tensor = torch.randn((batch_size, sequence_length, hidden_size))
 
     def test_types(self):
-        
         model = Retention(
             hidden_size=self.hidden_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
-            dtype=torch.float32
+            dtype=torch.float32,
         )
 
         assert isinstance(model.hidden_size, int)
@@ -52,7 +51,6 @@ class TestRetention:
         assert model.project_v.dtype == torch.complex64
 
     def test_forward(self):
-        
         model = Retention(
             hidden_size=self.hidden_size,
             gamma=self.gamma,
@@ -64,7 +62,6 @@ class TestRetention:
         assert out.shape == self.sample_tensor.shape
 
     def test_forward_recurrent(self):
-        
         model = Retention(
             hidden_size=self.hidden_size,
             gamma=self.gamma,
@@ -91,7 +88,6 @@ class TestRetention:
         )
 
     def test_diagonal_matrix(self):
-        
         model = Retention(
             hidden_size=self.hidden_size,
             gamma=self.gamma,
@@ -129,7 +125,5 @@ class TestRetention:
         out, state = model.forward_chunkwise(x=self.sample_tensor, state=state)
         assert out.shape == self.sample_tensor.shape
         assert state.shape == (self.batch_size, self.hidden_size, self.hidden_size)
-
-
 
     # TODO: test that the forward passes produce similar results.

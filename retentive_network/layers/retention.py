@@ -123,9 +123,7 @@ class Retention(nn.Module):
 
         return x
 
-    def forward_chunkwise(
-        self, x: torch.Tensor, state: torch.Tensor = None
-    ):
+    def forward_chunkwise(self, x: torch.Tensor, state: torch.Tensor = None):
         """
         Implements a forward pass on a chunk `x` with
         hidden state `state` and bias `gamma`.
@@ -212,7 +210,5 @@ if __name__ == "__main__":
     parallel_out: torch.Tensor = layer(input_)
 
     recurrent_out, S = layer.forward_recurrent(input_, 0.1234, 2)
-    chunkwise_out, state = layer.forward_chunkwise(
-        x=input_, state=None
-    )
+    chunkwise_out, state = layer.forward_chunkwise(x=input_, state=None)
     print(input_.shape, parallel_out.shape, recurrent_out.shape, chunkwise_out.shape)
