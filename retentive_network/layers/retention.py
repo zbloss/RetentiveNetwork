@@ -123,8 +123,8 @@ class Retention(nn.Module):
 
         return x
 
-    def retention_forward_chunkwise(
-        self, x: torch.Tensor, state: torch.Tensor = None, gamma: float = None
+    def forward_chunkwise(
+        self, x: torch.Tensor, state: torch.Tensor = None
     ):
         """
         Implements a forward pass on a chunk `x` with
@@ -134,7 +134,6 @@ class Retention(nn.Module):
             x (torch.Tensor): A Tensor of shape [batch_size, sequence_length, hidden_size].
             state (torch.Tensor): Torch Tensor of shape [batch_size, hidden_size, hidden_size].
                                   If None, a zero tensor is created.
-            gamma (float): Bias float to apply to the state.
 
         Returns:
             torch.Tensor: A Tensor of shape [batch_size, sequence_length, hidden_size]
@@ -148,7 +147,7 @@ class Retention(nn.Module):
             x = x.to(self.dtype)
 
         batch_size, sequence_length, hidden_size = x.shape
-        if not state:
+        if state is None:
             state = torch.zeros(
                 (batch_size, hidden_size, hidden_size), dtype=self.dtype
             )
@@ -161,7 +160,7 @@ class Retention(nn.Module):
 
         out = retention_inner + retention_cross
 
-        state *= gamma
+        state *= self.gamma
         kv = torch.matmul(k, v.transpose(-1, -2))
         kv_dim = hidden_size // sequence_length
         kv = kv.repeat([1, kv_dim, kv_dim])
@@ -213,7 +212,7 @@ if __name__ == "__main__":
     parallel_out: torch.Tensor = layer(input_)
 
     recurrent_out, S = layer.forward_recurrent(input_, 0.1234, 2)
-    chunkwise_out, state = layer.retention_forward_chunkwise(
-        x=input_, state=None, gamma=0.1
+    chunkwise_out, state = layer.forward_chunkwise(
+        x=input_, state=None
     )
     print(input_.shape, parallel_out.shape, recurrent_out.shape, chunkwise_out.shape)

@@ -113,3 +113,23 @@ class TestRetention:
 
             assert tensor_value == diagonal_matrix[idx, :].max()
             assert tensor_value == diagonal_matrix[:, idx].max()
+
+    def test_forward_chunkwise(self):
+        model = Retention(
+            hidden_size=self.hidden_size,
+            gamma=self.gamma,
+            chunk_size=self.chunk_size,
+            dtype=torch.float32,
+        )
+
+        out, state = model.forward_chunkwise(x=self.sample_tensor)
+        assert out.shape == self.sample_tensor.shape
+        assert state.shape == (self.batch_size, self.hidden_size, self.hidden_size)
+
+        out, state = model.forward_chunkwise(x=self.sample_tensor, state=state)
+        assert out.shape == self.sample_tensor.shape
+        assert state.shape == (self.batch_size, self.hidden_size, self.hidden_size)
+
+
+
+    # TODO: test that the forward passes produce similar results.
