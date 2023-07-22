@@ -12,7 +12,7 @@ class TestLayerNorm:
         layer = LayerNorm(
             number_of_channels=self.number_of_channels,
             eps=self.eps,
-            half_point_precision=True,
+            dtype=torch.float16,
         )
         assert layer.number_of_channels == self.number_of_channels
         assert layer.eps == self.eps
@@ -24,7 +24,7 @@ class TestLayerNorm:
         layer = LayerNorm(
             number_of_channels=self.number_of_channels,
             eps=self.eps,
-            half_point_precision=True,
+            dtype=torch.float16,
         )
         assert layer.dtype == torch.float16
 
@@ -32,7 +32,7 @@ class TestLayerNorm:
         layer = LayerNorm(
             number_of_channels=self.number_of_channels,
             eps=self.eps,
-            half_point_precision=False,
+            dtype=torch.float32,
         )
         assert layer.dtype == torch.float32
 
@@ -41,7 +41,7 @@ class TestLayerNorm:
         layer = LayerNorm(
             number_of_channels=self.number_of_channels,
             eps=self.eps,
-            half_point_precision=True,
+            dtype=torch.float16,
         )
 
         out = layer(sample_tensor)

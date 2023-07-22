@@ -3,11 +3,17 @@ import torch.nn as nn
 
 
 class Projection(nn.Module):
-    def __init__(self, hidden_size: int):
+    def __init__(
+        self, hidden_size: int, bias: bool = True, dtype: torch.dtype = torch.float32
+    ):
         super(Projection, self).__init__()
         self.hidden_size: int = hidden_size
+        self.bias = bias
+        self.dtype = dtype
 
-        self.model: nn.Module = nn.Linear(self.hidden_size, self.hidden_size)
+        self.model: nn.Module = nn.Linear(
+            self.hidden_size, self.hidden_size, bias=self.bias, dtype=self.dtype
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -23,5 +29,6 @@ class Projection(nn.Module):
                               [batch_size, sequence_length, hidden_size].
 
         """
-
+        if not x.dtype == self.dtype:
+            x = x.to(self.dtype)
         return self.model(x)

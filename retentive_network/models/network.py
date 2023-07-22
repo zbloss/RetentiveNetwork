@@ -4,6 +4,7 @@ import torch.nn as nn
 from retentive_network.layers.feed_forward import FeedForward
 from retentive_network.layers.layer_norm import LayerNorm
 from retentive_network.layers.multi_scale_retention import MultiScaleRetention
+from retentive_network.exceptions import InvalidHiddenSizeException
 
 
 class RetentiveNetwork(nn.Module):
@@ -15,6 +16,7 @@ class RetentiveNetwork(nn.Module):
         feed_forward_size: int,
         chunk_size: int,
         half_point_precision: bool = False,
+        use_complex_numbers: bool = False,
     ):
         super(RetentiveNetwork, self).__init__()
 
@@ -24,14 +26,23 @@ class RetentiveNetwork(nn.Module):
         self.number_of_heads: int = number_of_heads
         self.chunk_size: int = chunk_size
         self.half_point_precision: bool = half_point_precision
+        self.use_complex_numbers: bool = use_complex_numbers
+
+        self.torch_dtype: torch.dtype = (
+            torch.float16 if self.half_point_precision else torch.float32
+        )
+        if self.use_complex_numbers:
+            self.torch_dtype: torch.dtype = (
+                torch.complex32 if self.half_point_precision else torch.complex64
+            )
 
         self.retention_layers: nn.ModuleList = nn.ModuleList(
             [
                 MultiScaleRetention(
-                    self.hidden_size,
-                    self.number_of_heads,
-                    self.chunk_size,
-                    self.half_point_precision,
+                    hidden_size=self.hidden_size,
+                    number_of_heads=self.number_of_heads,
+                    chunk_size=self.chunk_size,
+                    dtype=self.torch_dtype,
                 )
                 for _ in range(self.number_of_layers)
             ]
@@ -43,9 +54,7 @@ class RetentiveNetwork(nn.Module):
             ]
         )
 
-        self.layer_norm: nn.Module = LayerNorm(
-            self.hidden_size, half_point_precision=self.half_point_precision
-        )
+        self.layer_norm: nn.Module = LayerNorm(self.hidden_size, dtype=self.torch_dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -54,11 +63,11 @@ class RetentiveNetwork(nn.Module):
 
         Arguments:
             x (torch.Tensor): Torch tensor of shape
-                              [batch_size, sequence_length, hidden_dim].
+                              [batch_size, sequence_length, hidden_size].
 
         Returns:
             torch.Tensor: Torch tensor of shape
-                          [batch_size, sequence_length, hidden_dim].
+                          [batch_size, sequence_length, hidden_size].
         """
 
         for retention_layer, feed_forward_layer in zip(
@@ -79,7 +88,7 @@ class RetentiveNetwork(nn.Module):
 
         Arguments:
             x (torch.Tensor): Torch tensor of shape
-                              [batch_size, sequence_length, hidden_dim].
+                              [batch_size, sequence_length, hidden_size].
             previous_Ses (list): List of floats containing previous S values.
             n (int): The current nth iteration.
 
@@ -106,6 +115,59 @@ class RetentiveNetwork(nn.Module):
             x: torch = feed_forward_layer(feed_forward_in_layer_norm) + feed_forward_in
 
         return x, ses
+
+    def forward_chunkwise(self, x: torch.Tensor, previous_kv: torch.Tensor = None):
+        """
+        Implements the chunkwise forward pass as described in
+        the original paper.
+
+        Arguments:
+            x (torch.Tensor): Torch tensor of shape
+                              [batch_size, sequence_length, hidden_size].
+            previous_kv (torch.Tensor): kv value returned from the previous
+                                        forward_chunkwise() call. If None,
+                                        a torch.zeros() state is initialized
+                                        in it's place
+
+        Returns:
+            torch.Tensor: A Tensor of shape [batch_size, sequence_length, self.hidden_size]
+            torch.Tensor: previous_kv Tensor value to be used in the next
+                          recurrent retention forward pass of shape
+                          [batch_size, sequence_length, kv_dim, kv_dim] where kv_dim
+                          is hidden_size // number_of_heads
+        """
+
+        batch_size, sequence_length, hidden_size = x.shape
+        if hidden_size != self.hidden_size:
+            raise InvalidHiddenSizeException(
+                hidden_size=hidden_size, model_required_hidden_size=self.hidden_size
+            )
+
+        if not previous_kv:
+            kv_dim = self.hidden_size // self.number_of_heads
+            previous_kv: torch.Tensor = torch.zeros(
+                batch_size, sequence_length, kv_dim, kv_dim
+            )
+
+        total_chunks = sequence_length // self.chunk_size
+        if sequence_length % self.chunk_size != 0:
+            total_chunks += 1
+
+        chunkwise_out = []
+        for i in range(self.number_of_layers):
+            retention_layer: nn.Module = self.retention_layers[i]
+            feed_forward_layer: nn.Module = self.feed_forward_layers[i]
+
+            q, k, v = retention_layer._project_qkv(x)
+            previous_kv = torch.matmul(k.transpose(-1, -2), v)
+            out, previous_kv = retention_layer.forward_chunkwise(x, previous_kv)
+
+            chunkwise_out.append(out)
+
+        chunkwise_out = torch.stack(chunkwise_out, dim=1)
+
+        # Initialize state
+        state = torch.zeros(batch_size, hidden_size, hidden_size)
 
 
 if __name__ == "__main__":

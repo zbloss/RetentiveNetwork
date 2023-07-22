@@ -11,8 +11,6 @@ class TestRetentiveNetwork:
     number_of_layers = 4
     feed_forward_size = 20
     chunk_size = 2
-    half_point_precision = False
-
     sample_tensor = torch.randn(batch_size, sequence_length, hidden_size)
 
     model = RetentiveNetwork(
@@ -21,7 +19,8 @@ class TestRetentiveNetwork:
         number_of_heads=number_of_heads,
         feed_forward_size=feed_forward_size,
         chunk_size=chunk_size,
-        half_point_precision=half_point_precision,
+        half_point_precision=False,
+        use_complex_numbers=False
     )
 
     def test_forward(self):

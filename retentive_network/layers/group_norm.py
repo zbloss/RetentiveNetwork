@@ -8,14 +8,14 @@ class GroupNorm(nn.Module):
         number_of_groups: int,
         number_of_channels: int,
         eps: float = 1e-5,
-        half_point_precision: bool = False,
+        dtype: torch.dtype = torch.float32,
     ):
         super(GroupNorm, self).__init__()
 
         self.number_of_groups = number_of_groups
         self.number_of_channels = number_of_channels
         self.eps = eps
-        self.dtype = torch.float16 if half_point_precision else torch.float32
+        self.dtype = dtype
 
         self.gamma = nn.Parameter(torch.ones(number_of_channels, dtype=self.dtype))
         self.beta = nn.Parameter(torch.zeros(number_of_channels, dtype=self.dtype))
@@ -40,8 +40,10 @@ class GroupNorm(nn.Module):
                 ]
         """
 
+        if x.dtype != self.dtype:
+            x = x.to(dtype)
+
         original_shape = x.shape
-        # x = x.reshape(-1, self.number_of_groups, self.channels_per_group)
 
         mean = torch.mean(x, dim=1, keepdim=True)
         variance = torch.var(x, dim=1, keepdim=True)

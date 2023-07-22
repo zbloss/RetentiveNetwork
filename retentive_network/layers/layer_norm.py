@@ -7,13 +7,12 @@ class LayerNorm(nn.Module):
         self,
         number_of_channels: int,
         eps: float = 1e-5,
-        half_point_precision: bool = False,
+        dtype: torch.dtype = torch.float32,
     ):
         super(LayerNorm, self).__init__()
         self.number_of_channels = number_of_channels
         self.eps = eps
-
-        self.dtype = torch.float16 if half_point_precision else torch.float32
+        self.dtype = dtype
 
         self.gamma = nn.Parameter(torch.ones(number_of_channels, dtype=self.dtype))
         self.beta = nn.Parameter(torch.zeros(number_of_channels, dtype=self.dtype))
@@ -42,7 +41,7 @@ class LayerNorm(nn.Module):
 
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_dim = (4, 8, 32)
-    x: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_dim))
-    layer: nn.Module = LayerNorm(hidden_dim)
+    batch_size, sequence_length, hidden_size = (4, 8, 32)
+    x: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
+    layer: nn.Module = LayerNorm(hidden_size)
     out: torch.Tensor = layer(x)

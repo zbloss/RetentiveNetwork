@@ -38,7 +38,6 @@ class TestRetentiveNetworkCLM:
 
     def test_types(self):
         assert self.model.torch_dtype == torch.float32
-        assert self.model.complex_torch_dtype == torch.complex64
 
         model = RetentiveNetworkCLM(
             number_of_layers=self.number_of_layers,
@@ -53,7 +52,6 @@ class TestRetentiveNetworkCLM:
         )
 
         assert model.torch_dtype == torch.float16
-        assert model.complex_torch_dtype == torch.complex32
 
     def test_forward(self):
         out = self.model(self.sample_tensor)

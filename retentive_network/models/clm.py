@@ -43,9 +43,10 @@ class RetentiveNetworkCLM(nn.Module):
         self.torch_dtype: torch.dtype = (
             torch.float16 if self.half_point_precision else torch.float32
         )
-        self.complex_torch_dtype: torch.dtype = (
-            torch.complex32 if self.half_point_precision else torch.complex64
-        )
+        if self.use_complex_numbers:
+            self.torch_dtype: torch.dtype = (
+                torch.complex32 if self.half_point_precision else torch.complex64
+            )
 
         self.model: nn.Module = RetentiveNetwork(
             number_of_layers=self.number_of_layers,
@@ -54,6 +55,7 @@ class RetentiveNetworkCLM(nn.Module):
             feed_forward_size=self.feed_forward_size,
             chunk_size=self.chunk_size,
             half_point_precision=self.half_point_precision,
+            use_complex_numbers=self.use_complex_numbers,
         )
         self.embedding_layer: nn.Module = nn.Embedding(self.vocab_size, hidden_size)
         self.projection: torch.Tensor = nn.Parameter(
