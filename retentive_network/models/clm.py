@@ -96,6 +96,7 @@ class RetentiveNetworkCLM(nn.Module):
 
         if self.softmax:
             x = self.softmax_layer(x)
+            x = torch.mean(x, dim=-1)
 
         return x
 
@@ -132,8 +133,46 @@ class RetentiveNetworkCLM(nn.Module):
 
         if self.softmax:
             x = self.softmax_layer(x)
+            x = torch.mean(x, dim=-1)
 
         return x, ses
+
+    def forward_chunkwise(self, x: torch.Tensor, state: torch.Tensor = None):
+        """
+        Chunkwise forward pass includes passing `x` 
+        of shape [batch_size, sequence_length] and 
+        passes it through an embedding layer to shape
+        [batch_size, sequence_length, hidden_size].
+        This tensor is then passed through the
+        recurrent pass of the RetentiveNetwork
+        model before being projected into a tensor
+        of shape [batch_size, self.vocab_size].
+
+        Arguments:
+            x (torch.Tensor): Tensor of shape [
+                batch_size,
+                sequence_length
+            ].
+            previous_Ses (list): List of floats containing previous S values.
+            n (int): The current nth iteration.
+
+        Returns:
+            torch.Tensor: Tensor of shape [
+                batch_size,
+                self.vocab_size
+            ].
+        """
+
+        x: torch.Tensor = self.embedding_layer(x)
+        x, state = self.model.forward_chunkwise(x, state)
+        x: torch.Tensor = torch.matmul(x, self.projection.to(x.dtype))
+        x: torch.Tensor = x.real
+
+        if self.softmax:
+            x = self.softmax_layer(x)
+            x = torch.mean(x, dim=-1)
+
+        return x, state
 
     def sample(
         self,
