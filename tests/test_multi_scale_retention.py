@@ -2,8 +2,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from retentive_network.layers.multi_scale_retention import MultiScaleRetention
 from retentive_network.exceptions import InvalidRetentionParametersException
+from retentive_network.layers.multi_scale_retention import MultiScaleRetention
 
 
 class TestMultiScaleRetention:
@@ -11,39 +11,31 @@ class TestMultiScaleRetention:
     sequence_length = 5
     hidden_size = 32
     number_of_heads = 4
+    chunk_size = 2
     sample_tensor = torch.randn((batch_size, sequence_length, hidden_size))
 
-    half_point_precision = False
-    use_complex_numbers = False
     model = MultiScaleRetention(
-        hidden_size, number_of_heads, half_point_precision, use_complex_numbers
+        hidden_size=hidden_size,
+        number_of_heads=number_of_heads,
+        chunk_size=chunk_size,
+        dtype=torch.float32,
     )
 
     def test_types(self):
         assert isinstance(self.model.hidden_size, type(self.hidden_size))
         assert isinstance(self.model.number_of_heads, type(self.number_of_heads))
-        assert isinstance(
-            self.model.half_point_precision, type(self.half_point_precision)
-        )
-        assert isinstance(
-            self.model.use_complex_numbers, type(self.use_complex_numbers)
-        )
-
-        assert isinstance(self.model.torch_dtype, torch.dtype)
-        assert isinstance(self.model.complex_torch_dtype, torch.dtype)
+        assert isinstance(self.model.dtype, torch.dtype)
 
     def test_torch_complex(self):
-        assert self.model.torch_dtype == torch.float32
-        assert self.model.complex_torch_dtype == torch.complex64
+        assert self.model.dtype == torch.float32
 
         model = MultiScaleRetention(
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
-            half_point_precision=True,
-            use_complex_numbers=self.use_complex_numbers,
+            chunk_size=self.chunk_size,
+            dtype=torch.float16,
         )
-        assert model.torch_dtype == torch.float16
-        assert model.complex_torch_dtype == torch.complex32
+        assert model.dtype == torch.float16
 
     def test_gammas(self):
         assert isinstance(self.model.gammas, list)
@@ -56,8 +48,8 @@ class TestMultiScaleRetention:
         model = MultiScaleRetention(
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
-            half_point_precision=False,
-            use_complex_numbers=True,
+            chunk_size=self.chunk_size,
+            dtype=torch.complex64,
         )
         assert model.weight1.dtype == torch.complex64
         assert model.weight2.dtype == torch.complex64
@@ -111,6 +103,16 @@ class TestMultiScaleRetention:
             model = MultiScaleRetention(
                 hidden_size=bad_hidden_size,
                 number_of_heads=bad_number_of_heads,
-                half_point_precision=True,
-                use_complex_numbers=self.use_complex_numbers,
+                chunk_size=self.chunk_size,
+                dtype=torch.float16,
             )
+
+    def test_forward_chunkwise(self):
+        state = torch.zeros((self.batch_size, self.hidden_size, self.hidden_size))
+        out, state = self.model.forward_chunkwise(self.sample_tensor, state)
+        assert out.shape == torch.Size(
+            [self.batch_size, self.sequence_length, self.hidden_size]
+        )
+
+        kv_dimension = self.hidden_size // self.number_of_heads
+        assert state.shape == torch.Size([self.batch_size, kv_dimension, kv_dimension])

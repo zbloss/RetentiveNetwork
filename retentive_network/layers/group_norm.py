@@ -1,17 +1,20 @@
 import torch
 import torch.nn as nn
 
-from retentive_network.exceptions import HalfPointPrecisionException
+from retentive_network.exceptions import ComplexTensorException
 
 
-class LayerNorm(nn.Module):
+class GroupNorm(nn.Module):
     def __init__(
         self,
+        number_of_groups: int,
         number_of_channels: int,
         eps: float = 1e-5,
         dtype: torch.dtype = torch.float32,
     ):
-        super(LayerNorm, self).__init__()
+        super(GroupNorm, self).__init__()
+
+        self.number_of_groups = number_of_groups
         self.number_of_channels = number_of_channels
         self.eps = eps
         self.dtype = dtype
@@ -21,36 +24,45 @@ class LayerNorm(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Applies LayerNorm according to the original paper.
+        Applies Group Normalization on x.
 
         Arguments:
-            x (torch.Tensor): Torch tensor of generic size.
-
+            x (torch.Tensor): Torch tensor of shape [
+                    batch_size,
+                    sequence_length,
+                    hidden_size,
+                ]
         Returns:
-            torch.Tensor: Torch tensor of shape x.shape.
+            torch.Tensor: Torch tensor of shape [
+                    batch_size,
+                    sequence_length,
+                    hidden_size
+                ]
         """
+
+        if x.dtype == torch.complex32 or x.dtype == torch.complex64:
+            raise ComplexTensorException(x)
 
         original_shape = x.shape
 
-        x = x.reshape(-1, original_shape[-1])
         mean = torch.mean(x, dim=1, keepdim=True)
         variance = torch.var(x, dim=1, keepdim=True)
+
         x = (x - mean) / torch.sqrt(variance + self.eps)
+        x = x.reshape(-1, self.number_of_channels)
         x *= self.gamma
         x += self.beta
+
         x = x.reshape(original_shape)
 
         if x.dtype != self.dtype:
-            if torch.is_complex(x):
-                raise HalfPointPrecisionException(x)
-            else:
-                x = x.to(self.dtype)
+            x = x.to(self.dtype)
 
         return x
 
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_size = (4, 8, 32)
-    x: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
-    layer: nn.Module = LayerNorm(hidden_size)
-    out: torch.Tensor = layer(x)
+    input_: torch.Tensor = torch.randn([4, 5, 32])
+    layer: nn.Module = GroupNorm(4, 4)
+
+    out: torch.Tensor = layer(input_)

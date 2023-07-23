@@ -23,6 +23,7 @@ class RetentiveNetworkCLM(nn.Module):
         number_of_heads: int,
         feed_forward_size: int,
         vocab_size: int,
+        chunk_size: int,
         half_point_precision: bool = False,
         use_complex_numbers: bool = False,
         softmax: bool = False,
@@ -34,6 +35,7 @@ class RetentiveNetworkCLM(nn.Module):
         self.number_of_heads: int = number_of_heads
         self.feed_forward_size: int = feed_forward_size
         self.vocab_size: int = vocab_size
+        self.chunk_size: int = chunk_size
         self.half_point_precision: bool = half_point_precision
         self.use_complex_numbers: bool = use_complex_numbers
         self.softmax: bool = softmax
@@ -41,16 +43,19 @@ class RetentiveNetworkCLM(nn.Module):
         self.torch_dtype: torch.dtype = (
             torch.float16 if self.half_point_precision else torch.float32
         )
-        self.complex_torch_dtype: torch.dtype = (
-            torch.complex32 if self.half_point_precision else torch.complex64
-        )
+        if self.use_complex_numbers:
+            self.torch_dtype: torch.dtype = (
+                torch.complex32 if self.half_point_precision else torch.complex64
+            )
 
         self.model: nn.Module = RetentiveNetwork(
             number_of_layers=self.number_of_layers,
             hidden_size=self.hidden_size,
             number_of_heads=self.number_of_heads,
             feed_forward_size=self.feed_forward_size,
+            chunk_size=self.chunk_size,
             half_point_precision=self.half_point_precision,
+            use_complex_numbers=self.use_complex_numbers,
         )
         self.embedding_layer: nn.Module = nn.Embedding(self.vocab_size, hidden_size)
         self.projection: torch.Tensor = nn.Parameter(
@@ -169,9 +174,7 @@ class RetentiveNetworkCLM(nn.Module):
         ]
 
         for idx in range(sequence_length):
-            X, previous_Ses = self.forward_recurrent(
-                x[:, idx], previous_Ses, idx + 1
-            )
+            X, previous_Ses = self.forward_recurrent(x[:, idx], previous_Ses, idx + 1)
 
         original_x = self._multinomial_probability_distribution(
             x=X, temperature=temperature, number_of_samples=number_of_samples
@@ -237,6 +240,7 @@ if __name__ == "__main__":
     vocab_size = 10
     sample_length = 20
     number_of_samples = 3
+    chunk_size = 4
     softmax = True
 
     X = torch.randint(0, vocab_size, (batch_size, sequence_length))
@@ -247,6 +251,7 @@ if __name__ == "__main__":
         number_of_heads=number_of_heads,
         feed_forward_size=feed_forward_size,
         vocab_size=vocab_size,
+        chunk_size=chunk_size,
         softmax=softmax,
     )
     parallel_out = model(X)
