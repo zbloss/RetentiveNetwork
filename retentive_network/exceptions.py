@@ -1,3 +1,6 @@
+import torch
+
+
 class InvalidRetentionParametersException(Exception):
     """
     Raised in the event that parameters passed to the
@@ -28,4 +31,52 @@ class InvalidHiddenSizeException(Exception):
 
     def __init__(self, hidden_size: int, model_required_hidden_size: int):
         self.message = f"hidden_size ({hidden_size}) must be equal to model.hidden_size ({hidden_size})"
+        super().__init__(self.message)
+
+
+class HalfPointPrecisionException(Exception):
+    """
+    Raised in the event that an operation attempts
+    to use half point precision when Pytorch does not
+    yet support operations on that type.
+    """
+
+    def __init__(
+        self,
+        tensor: torch.Tensor,
+    ):
+        self.message = f"tensor (dtype: {tensor.dtype}) is not currently supported for this operation"
+        super().__init__(self.message)
+
+
+class ComplexTensorException(Exception):
+    """
+    Raised in the event that an operation attempts
+    to use complex tensor dtypes when Pytorch does not
+    yet support operations on that type.
+    """
+
+    def __init__(
+        self,
+        tensor: torch.Tensor,
+    ):
+        self.message = f"tensor (dtype: {tensor.dtype}) is not currently supported for this operation"
+        super().__init__(self.message)
+
+
+class InvalidBatchSizeException(Exception):
+    """
+    Raised in the event that an operation attempts
+    to tensors that have different batch_sizes. If
+    this is raised, there is some improper tensor
+    reshaping happening.
+
+    """
+
+    def __init__(
+        self,
+        tensora: torch.Tensor,
+        tensorb: torch.Tensor,
+    ):
+        self.message = f"tensora (batch_size: {tensora.shape[0]}) is does not match tensorb (batch_size: {tensorb.shape[0]})"
         super().__init__(self.message)

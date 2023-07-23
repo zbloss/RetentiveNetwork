@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from retentive_network.exceptions import HalfPointPrecisionException
+
 
 class LayerNorm(nn.Module):
     def __init__(
@@ -37,6 +39,13 @@ class LayerNorm(nn.Module):
         x *= self.gamma
         x += self.beta
         x = x.reshape(original_shape)
+
+        if x.dtype != self.dtype:
+            if torch.is_complex(x):
+                raise HalfPointPrecisionException(x)
+            else:
+                x = x.to(self.dtype)
+
         return x
 
 

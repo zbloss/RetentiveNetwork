@@ -74,10 +74,12 @@ class RetentiveNetwork(nn.Module):
             self.retention_layers, self.feed_forward_layers
         ):
             x_layer_norm: torch.Tensor = self.layer_norm(x)
-            retention_out: torch = retention_layer(x_layer_norm) + x
+            retention_out: torch.Tensor = retention_layer(x_layer_norm) + x
 
-            retention_out_layer_norm: torch = self.layer_norm(retention_out)
-            x: torch = feed_forward_layer(retention_out_layer_norm) + retention_out
+            retention_out_layer_norm: torch.Tensor = self.layer_norm(retention_out)
+            x: torch.Tensor = (
+                feed_forward_layer(retention_out_layer_norm) + retention_out
+            )
 
         return x
 
@@ -116,7 +118,7 @@ class RetentiveNetwork(nn.Module):
 
         return x, ses
 
-    def forward_chunkwise(self, x: torch.Tensor, previous_kv: torch.Tensor = None):
+    def forward_chunkwise(self, x: torch.Tensor, state: torch.Tensor = None):
         """
         Implements the chunkwise forward pass as described in
         the original paper.
@@ -124,14 +126,14 @@ class RetentiveNetwork(nn.Module):
         Arguments:
             x (torch.Tensor): Torch tensor of shape
                               [batch_size, sequence_length, hidden_size].
-            previous_kv (torch.Tensor): kv value returned from the previous
-                                        forward_chunkwise() call. If None,
-                                        a torch.zeros() state is initialized
-                                        in it's place
+            state (torch.Tensor): previous state value returned from the previous
+                                  forward_chunkwise() call. If None,
+                                  a torch.zeros() state is initialized
+                                  in it's place
 
         Returns:
             torch.Tensor: A Tensor of shape [batch_size, sequence_length, self.hidden_size]
-            torch.Tensor: previous_kv Tensor value to be used in the next
+            torch.Tensor: state Tensor value to be used in the next
                           recurrent retention forward pass of shape
                           [batch_size, sequence_length, kv_dim, kv_dim] where kv_dim
                           is hidden_size // number_of_heads
@@ -143,31 +145,24 @@ class RetentiveNetwork(nn.Module):
                 hidden_size=hidden_size, model_required_hidden_size=self.hidden_size
             )
 
-        if not previous_kv:
-            kv_dim = self.hidden_size // self.number_of_heads
-            previous_kv: torch.Tensor = torch.zeros(
-                batch_size, sequence_length, kv_dim, kv_dim
-            )
+        state = torch.zeros(
+            (batch_size, hidden_size, hidden_size),
+            dtype=self.torch_dtype,
+        )
 
-        total_chunks = sequence_length // self.chunk_size
-        if sequence_length % self.chunk_size != 0:
-            total_chunks += 1
-
-        chunkwise_out = []
         for i in range(self.number_of_layers):
+            x_layer_norm: torch.Tensor = self.layer_norm(x)
+
             retention_layer: nn.Module = self.retention_layers[i]
             feed_forward_layer: nn.Module = self.feed_forward_layers[i]
 
-            q, k, v = retention_layer._project_qkv(x)
-            previous_kv = torch.matmul(k.transpose(-1, -2), v)
-            out, previous_kv = retention_layer.forward_chunkwise(x, previous_kv)
+            chunkwise_out, state = retention_layer.forward_chunkwise(x, state)
+            feed_forward_in: torch.Tensor = chunkwise_out + x
+            feed_forward_in_layer_norm: torch = self.layer_norm(feed_forward_in)
 
-            chunkwise_out.append(out)
+            x: torch = feed_forward_layer(feed_forward_in_layer_norm) + feed_forward_in
 
-        chunkwise_out = torch.stack(chunkwise_out, dim=1)
-
-        # Initialize state
-        state = torch.zeros(batch_size, hidden_size, hidden_size)
+        return x, state
 
 
 if __name__ == "__main__":
@@ -205,3 +200,8 @@ if __name__ == "__main__":
         previous_Ses = s_ns
 
     recurrent_out: torch.Tensor = torch.stack(recurrent_out, dim=1)
+
+    chunkwise_out, chunkwise_state = model.forward_chunkwise(
+        x=input_,
+        state=None,
+    )

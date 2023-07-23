@@ -108,14 +108,11 @@ class TestMultiScaleRetention:
             )
 
     def test_forward_chunkwise(self):
-        q, k, v = self.model._project_qkv(self.sample_tensor)
-        previous_kv = torch.matmul(k.transpose(-1, -2), v)
-        out, previous_kv = self.model.forward_chunkwise(self.sample_tensor, previous_kv)
+        state = torch.zeros((self.batch_size, self.hidden_size, self.hidden_size))
+        out, state = self.model.forward_chunkwise(self.sample_tensor, state)
         assert out.shape == torch.Size(
             [self.batch_size, self.sequence_length, self.hidden_size]
         )
 
         kv_dimension = self.hidden_size // self.number_of_heads
-        assert previous_kv.shape == torch.Size(
-            [self.batch_size, self.sequence_length, kv_dimension, kv_dimension]
-        )
+        assert state.shape == torch.Size([self.batch_size, kv_dimension, kv_dimension])

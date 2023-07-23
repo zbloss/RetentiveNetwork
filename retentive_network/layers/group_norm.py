@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from retentive_network.exceptions import ComplexTensorException
+
 
 class GroupNorm(nn.Module):
     def __init__(
@@ -20,8 +22,6 @@ class GroupNorm(nn.Module):
         self.gamma = nn.Parameter(torch.ones(number_of_channels, dtype=self.dtype))
         self.beta = nn.Parameter(torch.zeros(number_of_channels, dtype=self.dtype))
 
-        self.channels_per_group = self.number_of_channels // self.number_of_groups
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Applies Group Normalization on x.
@@ -40,8 +40,8 @@ class GroupNorm(nn.Module):
                 ]
         """
 
-        if x.dtype != self.dtype:
-            x = x.to(dtype)
+        if x.dtype == torch.complex32 or x.dtype == torch.complex64:
+            raise ComplexTensorException(x)
 
         original_shape = x.shape
 
@@ -54,6 +54,10 @@ class GroupNorm(nn.Module):
         x += self.beta
 
         x = x.reshape(original_shape)
+
+        if x.dtype != self.dtype:
+            x = x.to(self.dtype)
+
         return x
 
 

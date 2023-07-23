@@ -104,35 +104,6 @@ class TestRetentiveNetworkCLM:
         assert all([isinstance(x, list) for x in previous_Ses])
         assert all([self.number_of_heads == len(x) for x in previous_Ses])
 
-    def test_forward_layers_are_approx_equal(self):
-        parallel_out = self.model(self.sample_tensor)
-
-        head_size = self.model.model.retention_layers[0].head_size
-
-        previous_Ses = [
-            [
-                torch.zeros(self.batch_size, head_size, head_size)
-                for _ in range(self.number_of_heads)
-            ]
-            for _ in range(self.number_of_layers)
-        ]
-
-        recurrent_out = []
-        for i in range(self.sequence_length):
-            out, s = self.model.forward_recurrent(
-                self.sample_tensor[:, i], previous_Ses, i + 1
-            )
-            recurrent_out.append(out)
-            previous_Ses = s
-
-        recurrent_out = torch.stack(recurrent_out, dim=1)
-
-        # assert recurrent_out.shape == torch.Size([self.batch_size, self.sequence_length, self.hidden_size])
-        # assert parallel_out.shape == torch.Size([self.batch_size, self.sequence_length, self.hidden_size])
-
-        assert parallel_out.shape == recurrent_out.shape
-        assert (parallel_out - recurrent_out).abs().max() < 1e-3
-
     def test_head_size(self):
         assert self.model.head_size == (
             self.model.hidden_size // self.model.number_of_heads

@@ -31,7 +31,10 @@ class Projection(nn.Module):
         """
         if not x.dtype == self.dtype:
             x = x.to(self.dtype)
-        return self.model(x)
+
+        x = self.model(x)
+
+        return x
 
 
 if __name__ == "__main__":

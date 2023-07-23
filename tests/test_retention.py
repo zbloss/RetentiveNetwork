@@ -5,17 +5,19 @@ from retentive_network.layers.retention import Retention
 
 
 class TestRetention:
-    batch_size = 4
-    sequence_length = 20
-    hidden_size = 100
-    gamma = 0.1
-    chunk_size = 4
+    batch_size: int = 4
+    head_size: int = 4
+    sequence_length: int = 20
+    hidden_size: int = 100
+    gamma: float = 0.1
+    chunk_size: int = 4
 
     sample_tensor = torch.randn((batch_size, sequence_length, hidden_size))
 
     def test_types(self):
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.head_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.float32,
@@ -31,7 +33,8 @@ class TestRetention:
         assert model.project_v.dtype == torch.float32
 
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.head_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.complex32,
@@ -39,7 +42,8 @@ class TestRetention:
         assert model.dtype == torch.complex32
 
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.head_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.complex64,
@@ -52,7 +56,8 @@ class TestRetention:
 
     def test_forward(self):
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.hidden_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.complex64,
@@ -63,7 +68,8 @@ class TestRetention:
 
     def test_forward_recurrent(self):
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.hidden_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.complex64,
@@ -77,19 +83,20 @@ class TestRetention:
         assert out.shape == torch.Size(
             [
                 self.batch_size,
-                self.sequence_length,
+                self.head_size,
                 self.sequence_length,
                 self.hidden_size,
             ]
         )
 
         assert S.shape == torch.Size(
-            [self.batch_size, self.sequence_length, self.hidden_size, self.hidden_size]
+            [self.batch_size, self.hidden_size, self.hidden_size]
         )
 
     def test_diagonal_matrix(self):
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.hidden_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.float32,
@@ -112,7 +119,8 @@ class TestRetention:
 
     def test_forward_chunkwise(self):
         model = Retention(
-            hidden_size=self.hidden_size,
+            hidden_size=self.head_size,
+            head_size=self.hidden_size,
             gamma=self.gamma,
             chunk_size=self.chunk_size,
             dtype=torch.float32,

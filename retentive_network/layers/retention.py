@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from retentive_network.exceptions import InvalidBatchSizeException
 from retentive_network.layers.projection import Projection
 
 
@@ -8,6 +10,7 @@ class Retention(nn.Module):
     def __init__(
         self,
         hidden_size: int,
+        head_size: int,
         gamma: float,
         chunk_size: int,
         dtype: torch.dtype = torch.float32,
@@ -15,18 +18,19 @@ class Retention(nn.Module):
         super(Retention, self).__init__()
 
         self.hidden_size: int = hidden_size
+        self.head_size: int = head_size
         self.gamma: float = gamma
         self.chunk_size: int = chunk_size
         self.dtype: torch.dtype = dtype
 
         self.project_q = Projection(
-            hidden_size=self.hidden_size, bias=True, dtype=self.dtype
+            hidden_size=self.head_size, bias=False, dtype=self.dtype
         )
         self.project_k = Projection(
-            hidden_size=self.hidden_size, bias=True, dtype=self.dtype
+            hidden_size=self.head_size, bias=False, dtype=self.dtype
         )
         self.project_v = Projection(
-            hidden_size=self.hidden_size, bias=False, dtype=self.dtype
+            hidden_size=self.head_size, bias=False, dtype=self.dtype
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -49,7 +53,7 @@ class Retention(nn.Module):
         q, k, v = self._project_qkv(x)
 
         attention_mask: torch.Tensor = torch.matmul(
-            q, k.permute(0, 2, 1)
+            q, k.transpose(-1, -2)
         ) * diagonal_matrix.unsqueeze(0)
 
         x: torch.Tensor = torch.matmul(attention_mask, v)
@@ -85,9 +89,9 @@ class Retention(nn.Module):
 
         q, k, v = self._project_qkv(x)
 
-        matmulled = torch.matmul(k.unsqueeze(-1), v.unsqueeze(-2))
+        kv = torch.matmul(k.transpose(-1, -2), v)
 
-        s: torch.Tensor = self.gamma * previous_S + matmulled
+        s: torch.Tensor = self.gamma * previous_S + kv
         x: torch.Tensor = torch.matmul(q.unsqueeze(1), s).squeeze(1)
         return x, s
 
@@ -158,11 +162,15 @@ class Retention(nn.Module):
 
         out = retention_inner + retention_cross
 
-        state *= self.gamma
+        # state *= self.gamma
         kv = torch.matmul(k, v.transpose(-1, -2))
         kv_dim = hidden_size // sequence_length
         kv = kv.repeat([1, kv_dim, kv_dim])
+
+        if kv.shape != state.shape:
+            kv = self._pad_kv(kv, state)
         state += kv
+
         return out, state
 
     def _project_qkv(self, x: torch.Tensor) -> torch.Tensor:
@@ -197,18 +205,52 @@ class Retention(nn.Module):
 
         return q, k, v
 
+    def _pad_kv(self, kv: torch.Tensor, state: torch.Tensor) -> torch.Tensor:
+        """
+        Applies zero-padding to tensor `kv` so that `kv` and `state`
+        become of the same shape. Microsoft may have found a more
+        clever way of doing this in the original codebase, but for
+        now this should not affect the model results.
+
+        Arguments:
+            kv (torch.Tensor): K * V transposed Dot Product.
+            state (torch.Tensor): Current state tensor.
+
+        Returns:
+            torch.Tensor: kv zero-padded to shape of state.
+
+        """
+
+        kv_batch, kv_w, kv_h = kv.shape
+        state_batch, state_w, state_h = state.shape
+
+        if kv_batch != state_batch:
+            raise InvalidBatchSizeException(kv, state)
+
+        else:
+            w_diff = state_w - kv_w
+            h_diff = state_h - kv_h
+            kv = F.pad(input=kv, pad=(0, w_diff, 0, h_diff), mode="constant", value=0)
+
+        return kv
+
 
 if __name__ == "__main__":
-    batch_size, sequence_length, hidden_size, chunk_size = (4, 20, 100, 4)
+    batch_size, sequence_length, hidden_size, chunk_size, head_size = (4, 20, 100, 2, 4)
+    dtype = torch.float32
 
-    input_: torch.Tensor = torch.randn((batch_size, sequence_length, hidden_size))
+    input_: torch.Tensor = torch.randn(
+        (batch_size, sequence_length, head_size), dtype=dtype
+    )
     layer: nn.Module = Retention(
         hidden_size=hidden_size,
-        gamma=0.1,
+        head_size=head_size,
+        gamma=0.9,
         chunk_size=chunk_size,
     )
     parallel_out: torch.Tensor = layer(input_)
 
     recurrent_out, S = layer.forward_recurrent(input_, 0.1234, 2)
     chunkwise_out, state = layer.forward_chunkwise(x=input_, state=None)
-    print(input_.shape, parallel_out.shape, recurrent_out.shape, chunkwise_out.shape)
+
+    assert parallel_out.shape == chunkwise_out.shape
