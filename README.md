@@ -23,7 +23,7 @@ the `forward()` and `forward_chunkwise()` are recommended for sample data and sa
 with long sequences respectively. The `forward_recurrent()` method, while it can be used for
 training, the authors suggest using it for faster inference instead.
 
-[example-training-script](https://)
+[example-training-script](https://github.com/zbloss/RetentiveNetwork/blob/main/examples/example_training.py)
 
 ```python
 
